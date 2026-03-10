@@ -1,0 +1,3 @@
+{
+  "extends": "@obsearch/config/tsconfig.base.json"
+}
