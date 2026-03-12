@@ -5,7 +5,9 @@ export const env = createEnv({
   clientPrefix: "VITE_",
   client: {
     VITE_SERVER_URL: z.url(),
+    VITE_OBSIDIAN_VAULT_NAME: z.string().trim().min(1),
+    VITE_OBSEARCH_THUMBNAIL_TOKEN: z.string().trim().min(1),
   },
-  runtimeEnv: (import.meta as any).env,
+  runtimeEnv: import.meta.env,
   emptyStringAsUndefined: true,
 });

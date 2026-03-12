@@ -1,0 +1,28 @@
+{
+  "name": "@obsearch/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@google/genai": "catalog:",
+    "sqlite-vec": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@obsearch/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "^5"
+  }
+}

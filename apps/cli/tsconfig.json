@@ -1,0 +1,10 @@
+{
+	"extends": "@obsearch/config/tsconfig.base.json",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"@obsearch/core": ["../../packages/core/src/index.ts"]
+		}
+	},
+	"include": ["src/**/*.ts"]
+}

@@ -1,0 +1,22 @@
+{
+	"name": "@obsearch/cli",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"obsearch": "./src/index.ts"
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit -p tsconfig.json",
+		"dev": "bun run --watch src/index.ts",
+		"index": "bun run src/index.ts index",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@obsearch/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@obsearch/config": "workspace:*",
+		"@types/bun": "catalog:",
+		"typescript": "^5"
+	}
+}

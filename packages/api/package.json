@@ -9,19 +9,23 @@
       "default": "./src/*.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
   "dependencies": {
+    "@obsearch/core": "workspace:*",
     "@obsearch/env": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "dotenv": "catalog:",
+    "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@obsearch/config": "workspace:*",
-    "hono": "catalog:",
     "typescript": "^5"
   }
 }
