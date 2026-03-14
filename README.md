@@ -16,7 +16,6 @@ Monorepo for indexing an Obsidian vault and searching across text, images, and P
 9. [x] CLI `index <vault-path>` (`apps/cli`)
 10. [x] oRPC `search(query, limit)` endpoint
 11. [x] Web UI with thumbnails + Obsidian deep links
-12. [ ] README demo GIF
 
 ### Fase 2
 - [ ] Semantic chunking for long markdown
@@ -101,8 +100,3 @@ Useful checks:
 - `bun test apps/cli/src/index.test.ts`
 - `bun run --cwd apps/cli check-types`
 
-## Known Validation Constraints
-
-- In this local environment, sqlite dynamic extension loading is unavailable, so sqlite-backed integration tests are explicitly skipped with a clear reason.
-- `apps/web` typecheck still fails in this workspace because Bun-only core types (`Bun`, `bun:sqlite`) leak into web TS context.
-- Thumbnail route hardening is improved (loopback + token), but the current client-visible static token model is not production-grade authorization.
