@@ -1,49 +1,97 @@
-obsearch is a multimodal semantic search engine for Obsidian vaults — it uses Gemini Embedding 2 to embed text, images, and PDFs into the same vector space so users can search across all file types with a single natural language query.
+# OBSEARCH KNOWLEDGE BASE
 
-## Architecture
-- Monorepo: Bun workspaces + Turborepo. Run `bun run dev` from root to start all apps.
-- Backend lives in `apps/server` (Hono + oRPC), frontend in `apps/web` (React + TanStack Router).
-- CLI (`apps/cli`) is the indexing entrypoint — crawl vault, generate embeddings, persist to SQLite.
-- Shared logic (embeddings, SQLite, crawler, indexing pipeline) belongs in `packages/core`.
-- Database is local SQLite + sqlite-vec for vector search. No ORM. No cloud. Data never leaves the user's machine.
+**Commit:** 5870c48 | **Branch:** master
 
-## Embedding model
-- Model: `gemini-embedding-2-preview` (default), configurable via `GEMINI_EMBEDDING_MODEL` env var.
-- API key via `GEMINI_API_KEY` env var.
-- **Task types are mandatory**: use `RETRIEVAL_DOCUMENT` when indexing, `RETRIEVAL_QUERY` when searching. Not using task types degrades search quality measurably.
-- **Embedding dimension**: `GEMINI_EMBEDDING_DIMENSION = 3072` (verified 2026-03-11 via live API). Configurable from 128–3072 via `outputDimensionality`. Pass this constant to `initDb` — wrong dimension breaks the sqlite-vec schema silently.
-- The model is in preview — do not assume API stability.
+## OVERVIEW
 
-## Indexing pipeline
-- Images: read file → convert to base64 with correct mimeType → embed via `inlineData` parts → store. This is the core differentiating feature.
-- Markdown: read text → embed with `RETRIEVAL_DOCUMENT` task type → store.
-- Rate limiting + exponential backoff is required before any real vault usage. The pipeline must handle 429s gracefully.
-- Incremental indexing by mtime: skip files whose mtime and size haven't changed since last index. This is part of the MVP, not Phase 2.
+Multimodal semantic search engine for Obsidian vaults — indexes `.md`, images, and PDFs into a single SQLite+sqlite-vec vector space using Gemini Embedding 2.
 
-## Supported file types
-`.md`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf`. Nothing else.
+## STRUCTURE
 
-## Crawler contract
-`packages/core`: recursive scan, return `files` with `{ path, type, size, mtime }` plus `errors`. `path` must be vault-relative and POSIX (`/`), skip hidden entries and symlinks, sort files by path.
+```
+obsearch/
+├── apps/
+│   ├── cli/        # Indexing entrypoint — `obsearch index <vault-path>`
+│   ├── server/     # Hono + oRPC API, thumbnail serving
+│   └── web/        # React 19 + Vite + TanStack Router search UI
+├── packages/
+│   ├── core/       # Embeddings, DB, crawler, indexing pipeline, retry
+│   ├── api/        # oRPC router definitions + context
+│   ├── env/        # Zod-validated env vars (./server, ./web subpaths)
+│   ├── config/     # Shared tsconfig.base.json
+│   └── ui/         # Shared React component library
+├── AGENTS.md       # This file (loaded into context)
+├── SPEC.md         # Task list and scope
+└── biome.json      # Formatter + linter (tabs, double quotes)
+```
 
-## Web UI requirements
-- Image results must show a real thumbnail, not a path string or placeholder icon — this is the visual proof that multimodal works.
-- Every result must include an Obsidian deep link: `obsidian://open?vault=VAULT_NAME&file=RELATIVE_PATH`.
+## WHERE TO LOOK
 
-## General
-- Use Bun APIs (`Bun.file`, `Bun.Glob`) over Node APIs wherever possible.
-- Keep it simple: this is a demo/open-source project built in public. Avoid over-engineering.
-- See SPEC.md for the full task list, scope, and repo structure.
+| Task | Location |
+|------|----------|
+| Embedding logic | `packages/core/src/embedding.ts` |
+| DB schema + vector search | `packages/core/src/db.ts` |
+| Indexing pipeline (images/md) | `packages/core/src/indexing.ts` |
+| Retry + rate limiting | `packages/core/src/retry.ts` |
+| Vault crawler | `packages/core/src/crawler.ts` |
+| oRPC router + search endpoint | `packages/api/src/routers/index.ts` |
+| Server routes + thumbnail serving | `apps/server/src/index.ts` |
+| CLI command + cost estimate | `apps/cli/src/index.ts` |
+| Search UI + Obsidian deep links | `apps/web/src/routes/index.tsx` |
+| Result cards + image thumbnails | `apps/web/src/components/search-results.tsx` |
+| Env var definitions | `packages/env/src/server.ts`, `packages/env/src/web.ts` |
 
-## Progress Snapshot (2026-03-11)
-- Completed through SPEC Task 12 (core indexing + CLI + API search endpoint + web search UI).
-- `packages/core/src/indexing.ts` exposes:
-  - `indexImage(...)`
-  - `indexMarkdown(...)`
-  - `indexVaultFile(...)` (`indexed` / `skipped` with explicit `reason`)
-- Retry logic is in `packages/core/src/retry.ts` (`retryWithBackoff`, `RetryExhaustedError`, transient error classification).
-- CLI lives in `apps/cli` with command `index <vault-path>`, per-file progress, summary counters, and cost estimate using `OBSEARCH_ESTIMATED_USD_PER_EMBED_CALL`.
-- API search route exists in `packages/api/src/routers/index.ts` and delegates to `core.search(...)` via context dependency wiring.
-- Web results UI exists in `apps/web/src/routes/index.tsx` + `apps/web/src/components/search-results.tsx` with real image thumbnails and Obsidian deep links.
-- Current incremental behavior for `pdf` is non-crashing skip (`reason: "unsupported_pdf"`) until Phase 2 PDF pipeline is implemented.
-- Thumbnail serving route (`/vault-file/*`) now requires vault-boundary checks and token/loopback gating. Treat current static client token model as demo-level only, not production security.
+## EMBEDDING MODEL
+
+- Model: `gemini-embedding-2-preview` (default), env: `GEMINI_EMBEDDING_MODEL`
+- **Task types are mandatory**: `RETRIEVAL_DOCUMENT` when indexing, `RETRIEVAL_QUERY` when searching. Omitting degrades quality measurably.
+- **Dimension**: `GEMINI_EMBEDDING_DIMENSION = 3072`. Pass to `initDb` — wrong dimension breaks sqlite-vec schema silently.
+- API key: `GEMINI_API_KEY`. Model is in preview — do not assume API stability.
+
+## INDEXING PIPELINE
+
+- Images: base64-encode → `inlineData` parts → embed → store (multimodal core feature)
+- Markdown: text → embed with `RETRIEVAL_DOCUMENT` → store
+- PDF: currently skipped with `reason: "unsupported_pdf"` (Phase 2)
+- Incremental: skip files where mtime + size unchanged since last index
+- Rate limiting: `retryWithBackoff` handles 429s and 5xx with exponential backoff
+
+## SECURITY (THUMBNAIL SERVING)
+
+- `/vault-file/*` requires loopback origin AND static token match
+- Path traversal prevented via `relative()` + vault boundary check
+- Symlinks rejected at indexing time (`assertImageInputHasNoSymlinks`, etc.)
+- Token model is demo-level only — not production security
+
+## ANTI-PATTERNS
+
+- Don't skip task types on embedding calls — silent quality regression
+- Don't use wrong embedding dimension — silent schema corruption in sqlite-vec
+- Don't add ORM — raw SQL with prepared statements is intentional
+- Don't use Node APIs when Bun APIs exist (`Bun.file`, `Bun.Glob`)
+
+## COMMANDS
+
+```bash
+bun run dev              # Start all apps (turbo dev)
+bun run build            # Build all workspaces
+bun run check-types      # Type check all workspaces
+bun run check            # Format + lint (biome)
+bun run dev:web          # Web only
+bun run dev:server       # Server only
+```
+
+## WORKSPACE IMPORTS
+
+```typescript
+import { initDb, crawlVault } from "@obsearch/core";
+import { env } from "@obsearch/env/server";   // server-only
+import { env } from "@obsearch/env/web";      // client-only
+import { Button } from "@obsearch/ui/components/button";
+```
+
+## NOTES
+
+- Supported file types: `.md`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf` only
+- `packages/core` is dependency-free from other workspace packages — all shared logic lives here
+- See subdirectory `AGENTS.md` files for package-level details
